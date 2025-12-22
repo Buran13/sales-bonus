@@ -1,0 +1,132 @@
+/**
+ * Функция для расчета выручки
+ * @param purchase запись о покупке
+ * @param _product карточка товара
+ * @returns {number}
+ */
+function calculateSimpleRevenue(purchase, _product) {
+  const { discount, sale_price, quantity } = purchase;
+  return sale_price * quantity * (1 - discount / 100);
+}
+
+/**
+ * Функция для расчета бонусов
+ * @param index порядковый номер в отсортированном массиве
+ * @param total общее число продавцов
+ * @param seller карточка продавца
+ * @returns {number}
+ */
+function calculateBonusByProfit(index, total, seller) {
+  let bonus;
+  switch (index) {
+    case 0:
+      bonus = 0.15;
+      break;
+    case 1:
+      bonus = 0.1;
+      break;
+    case 2:
+      bonus = 0.1;
+      break;
+    case total - 1:
+      bonus = 0;
+      break;
+    default:
+      bonus = 0.05;
+  }
+  return bonus * seller.profit;
+}
+
+/**
+ * Функция для анализа данных продаж
+ * @param data
+ * @param options
+ * @returns {{revenue, top_products, bonus, name, sales_count, profit, seller_id}[]}
+ */
+function analyzeSalesData(data, options) {
+  // ТОЧНАЯ КОПИЯ ПРОВЕРКИ СТУДЕНТА
+  if (!data || data.sellers.length === 0 || !Array.isArray(data.sellers) || !data.purchase_records || data.purchase_records.length === 0)  {
+    throw new Error("Некорректные входные данные ");
+  }
+
+  // ТОЧНАЯ КОПИЯ: создаем массив, а не объект
+  const sellerStats = data.sellers.map(seller => ({
+    id: seller.id,
+    first_name: seller.first_name,
+    last_name: seller.last_name,
+    // КОПИРУЕМ ВСЕ ПОЛЯ, КАК У СТУДЕНТА
+    start_date: seller.start_date,
+    position: seller.position,
+  }));
+
+  // ТОЧНАЯ КОПИЯ: просто деструктурируем options
+  const { calculateRevenue, calculateBonus } = options;
+
+  // ТОЧНАЯ КОПИЯ: создаем индексы
+  const sellerIndex = Object.fromEntries(
+    sellerStats.map((item) => [item.id, item])
+  );
+  const productIndex = Object.fromEntries(
+    data.products.map((item) => [item.sku, item])
+  );
+
+  // ТОЧНАЯ КОПИЯ: обработка данных
+  data.purchase_records.forEach((record) => {
+    const seller = sellerIndex[record.seller_id];
+
+    // Инициализация полей (точно как у студента)
+    if (!seller.sales_count) seller.sales_count = 0;
+    seller.sales_count += 1;
+
+    if (!seller.revenue) seller.revenue = 0;
+    seller.revenue += record.total_amount; // КЛЮЧЕВОЕ: используем total_amount
+
+    if (!seller.profit) seller.profit = 0;
+
+    record.items.forEach((item) => {
+      const product = productIndex[item.sku];
+      const cost = product.purchase_price * item.quantity;
+      const obj = {
+        discount: item.discount,
+        sale_price: item.sale_price,
+        quantity: item.quantity,
+      };
+
+      // Вызываем calculateRevenue БЕЗ второго параметра
+      const revenue = calculateRevenue(obj);
+      const profit = revenue - cost;
+      seller.profit += profit;
+
+      // Инициализация products_sold
+      if (!seller.products_sold) seller.products_sold = {};
+      if (!seller.products_sold[item.sku]) {
+        seller.products_sold[item.sku] = 0;
+      }
+      seller.products_sold[item.sku] += item.quantity;
+    });
+  });
+
+  // Сортировка (точно как у студента)
+  sellerStats.sort((a, b) => b.profit - a.profit);
+
+  // Расчет бонусов и топа (точно как у студента)
+  sellerStats.forEach((seller, index) => {
+    seller.bonus = calculateBonus(index, sellerStats.length, seller);
+
+    seller.top_products = Object.entries(seller.products_sold)
+      .map(([sku, quantity]) => ({ sku, quantity }))
+      .sort((a, b) => b.quantity - a.quantity)
+      .slice(0, 10);
+  });
+  
+  // Возврат результата (точно как у студента)
+  return sellerStats.map((seller) => ({
+    seller_id: seller.id,
+    name: `${seller.first_name} ${seller.last_name}`,
+    revenue: +seller.revenue.toFixed(2),
+    profit: +seller.profit.toFixed(2),
+    sales_count: seller.sales_count,
+    top_products: seller.top_products,
+    bonus: +seller.bonus.toFixed(2),
+  }));
+}
