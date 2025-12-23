@@ -72,7 +72,7 @@ function analyzeSalesData(data, options) {
     seller.sales_count += 1;
 
     if (!seller.revenue) seller.revenue = 0;
-    seller.revenue += record.total_amount;
+    seller.revenue += record.total_amount - record.total_discount;
 
     if (!seller.profit) seller.profit = 0;
 
